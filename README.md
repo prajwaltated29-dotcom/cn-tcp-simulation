@@ -100,7 +100,7 @@ http://localhost:5000
 
 **Prajwal Tated**  
 Electronics and Communication Engineering, MIT Manipal  
-Founding Hardware Engineer, Aerionix / Redinium Technologies
+
 
 ---
 
