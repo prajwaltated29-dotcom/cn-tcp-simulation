@@ -98,7 +98,7 @@ http://localhost:5000
 
 ## Author
 
-**Prajwal Tat**  
+**Prajwal Tated**  
 Electronics and Communication Engineering, MIT Manipal  
 Founding Hardware Engineer, Aerionix / Redinium Technologies
 
