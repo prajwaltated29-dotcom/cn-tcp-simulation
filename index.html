@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TCP Analyzer — MIT Manipal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+/* ═══════════════════════════════════════════════════
+   CLEAN MODERN DESIGN SYSTEM 
+   ═══════════════════════════════════════════════════ */
+:root {
+  /* Modern Zinc Dark Mode Palette */
+  --bg:         #09090b;
+  --surface:    #18181b;
+  --surface2:   #27272a;
+  --border:     #3f3f46;
+  --border2:    #52525b;
+
+  /* Protocol Colors */
+  --reno:   #3b82f6; /* Blue */
+  --cubic:  #22c55e; /* Green */
+  --bbr:    #ef4444; /* Red */
+
+  --reno-dim:  rgba(59, 130, 246, 0.15);
+  --cubic-dim: rgba(34, 197, 94, 0.15);
+  --bbr-dim:   rgba(239, 68, 68, 0.15);
+
+  /* Typography */
+  --text:       #fafafa;
+  --text-dim:   #a1a1aa;
+  --text-faint: #71717a;
+
+  /* MIT Accent */
+  --accent:     #f97316; 
+  --accent-dim: rgba(249, 115, 22, 0.15);
+  --accent-hover: #ea580c;
+
+  --radius:  8px;
+  --radius2: 12px;
+  
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'Fira Code', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── MIT HEADER ── */
+.mit-header {
+  background: #ffffff;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 32px;
+  border-bottom: 3px solid var(--accent);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.mit-logo-img { height: 48px; width: auto; object-fit: contain; }
+.project-title { 
+  font-family: var(--font-sans); 
+  font-size: 15px; 
+  font-weight: 600; 
+  color: #18181b; 
+  letter-spacing: -0.2px; 
+}
+
+/* ── Layout ── */
+.shell { 
+  max-width: 1400px; 
+  margin: 0 auto; 
+  padding: 32px 24px 60px; 
+  display: grid; 
+  grid-template-columns: 320px 1fr; 
+  gap: 28px; 
+  align-items: start; 
+}
+
+/* ── Panels ── */
+.panel { 
+  background: var(--surface); 
+  border: 1px solid var(--border); 
+  border-radius: var(--radius2); 
+  padding: 24px; 
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.panel-title { 
+  font-family: var(--font-sans); 
+  font-size: 13px; 
+  font-weight: 600; 
+  text-transform: uppercase; 
+  letter-spacing: 1px; 
+  color: var(--text); 
+  margin-bottom: 24px; 
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Form Controls ── */
+.mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 24px; }
+.mode-btn { 
+  padding: 10px 0; 
+  border: 1px solid var(--border); 
+  border-radius: var(--radius); 
+  background: var(--surface2); 
+  color: var(--text-dim); 
+  font-family: var(--font-sans); 
+  font-weight: 500;
+  font-size: 13px; 
+  cursor: pointer; 
+  transition: all 0.2s; 
+}
+.mode-btn:hover { background: var(--border); color: var(--text); }
+.mode-btn.active { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+
+.field { margin-bottom: 20px; }
+.field label { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 500; color: var(--text-dim); margin-bottom: 8px; }
+.field label span { color: var(--text); font-family: var(--font-mono); font-size: 13px; font-weight: 600; }
+input[type="range"] { width: 100%; -webkit-appearance: none; height: 4px; background: var(--border2); border-radius: 2px; outline: none; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); cursor: pointer; transition: transform 0.1s; }
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+/* ── Recommend Box ── */
+.recommend-box { padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface2); display: none; margin-bottom: 0; }
+.recommend-box.show { display: block; animation: fadeIn 0.3s ease; }
+.rec-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-faint); margin-bottom: 8px; }
+.rec-algo { font-family: var(--font-sans); font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.rec-algo.reno  { color: var(--reno); }
+.rec-algo.cubic { color: var(--cubic); }
+.rec-algo.bbr   { color: var(--bbr); }
+.rec-reason { color: var(--text-dim); font-size: 13px; line-height: 1.6; }
+
+/* ── Buttons ── */
+.btn-secondary { width: 100%; padding: 12px; background: var(--surface2); color: var(--text); border: 1px solid var(--border2); border-radius: var(--radius); font-family: var(--font-sans); font-size: 13px; font-weight: 500; cursor: pointer; transition: all .2s; margin-bottom: 16px; }
+.btn-secondary:hover { background: var(--border); }
+
+.run-btn { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-family: var(--font-sans); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(249, 115, 22, 0.2); }
+.run-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+.run-btn:active { transform: translateY(0); }
+.run-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ── TOPOLOGY CANVAS ── */
+.topo-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.topo-btn { font-family: var(--font-sans); font-weight: 500; font-size: 12px; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border2); background: var(--surface2); color: var(--text-dim); cursor: pointer; transition: all .15s; }
+.topo-btn:hover { background: var(--border); color: var(--text); }
+.topo-btn.sender-btn.active   { background: var(--reno-dim); border-color: var(--reno); color: var(--reno); }
+.topo-btn.receiver-btn.active { background: var(--cubic-dim); border-color: var(--cubic); color: var(--cubic); }
+.topo-btn.router-btn.active   { background: var(--bbr-dim); border-color: var(--bbr); color: var(--bbr); }
+.topo-hint { font-size: 12px; color: var(--text-faint); margin-left: auto;}
+
+.canvas-wrap { position: relative; width: 100%; height: 320px; background: var(--bg); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); cursor: default; }
+.canvas-wrap.placing { cursor: crosshair; }
+svg#topo-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+.topo-node { position: absolute; width: 56px; height: 56px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-family: var(--font-sans); font-weight: 600; cursor: grab; transform: translate(-50%, -50%); border: 2px solid; user-select: none; background: var(--surface); z-index: 10; }
+.topo-node:active { cursor: grabbing; }
+.topo-node.sender   { border-color: var(--reno); color: var(--text); background: var(--reno-dim); }
+.topo-node.receiver { border-color: var(--cubic); color: var(--text); background: var(--cubic-dim); }
+.topo-node.router   { border-color: var(--bbr); color: var(--text); border-radius: 12px; background: var(--bbr-dim); }
+.topo-node .node-icon { font-size: 18px; margin-bottom: 2px; }
+.delete-btn { position: absolute; top: -4px; right: -4px; width: 18px; height: 18px; background: #ef4444; border-radius: 50%; display: none; align-items: center; justify-content: center; color: #fff; cursor: pointer; border: none; font-size: 10px; }
+.topo-node:hover .delete-btn { display: flex; }
+
+.topo-empty-msg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; pointer-events: none; opacity: .5; color: var(--text-dim); }
+.topo-empty-msg .big { font-size: 36px; }
+
+/* ── Stats & Progress ── */
+.progress-wrap { display: none; }
+.progress-wrap.show { display: block; }
+.progress-header { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px; color: var(--text-dim); font-weight: 500; }
+.progress-bar-track { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; margin-bottom: 20px; border: 1px solid var(--border); }
+.progress-bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.4s ease; }
+.variant-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.v-pill { font-size: 12px; font-weight: 500; padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); color: var(--text-faint); }
+.v-pill.running { border-color: var(--accent); color: var(--accent); animation: pulse 1s infinite; }
+.v-pill.done.reno  { border-color: var(--reno); color: var(--reno); background: var(--reno-dim); }
+.v-pill.done.cubic { border-color: var(--cubic); color: var(--cubic); background: var(--cubic-dim); }
+.v-pill.done.bbr   { border-color: var(--bbr); color: var(--bbr); background: var(--bbr-dim); }
+
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;}
+.stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; }
+.stat-variant { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px; font-weight: 700; }
+.stat-variant.reno  { color: var(--reno); }
+.stat-variant.cubic { color: var(--cubic); }
+.stat-variant.bbr   { color: var(--bbr); }
+.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.stat-row:last-child { border-bottom: none; }
+.stat-key { color: var(--text-dim); font-size: 13px; }
+.stat-val { color: var(--text); font-family: var(--font-mono); font-weight: 600; font-size: 13px; }
+
+/* ── Charts ── */
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;}
+.chart-wrap { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.chart-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 16px; }
+.chart-canvas-wrap { position: relative; height: 200px; }
+.cwnd-chart-wrap { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.cwnd-canvas-wrap { position: relative; height: 260px; }
+
+.legend { display: flex; gap: 20px; margin-bottom: 16px; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--text); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+.empty-state { text-align: center; padding: 80px 20px; color: var(--text-faint); }
+.empty-icon { font-size: 40px; margin-bottom: 16px; opacity: 0.3; }
+.empty-text { font-size: 14px; line-height: 1.6; }
+
+/* Flows Table */
+table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 13px; text-align: left; }
+th { color: var(--text-dim); font-family: var(--font-sans); font-weight: 600; font-size: 12px; padding: 12px; border-bottom: 1px solid var(--border2); }
+td { padding: 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+tr:last-child td { border-bottom: none; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* Toggles */
+.wired-only, .wireless-only { display: none; }
+body.mode-wired    .wired-only    { display: block; }
+body.mode-wireless .wireless-only { display: block; }
+body.mode-wired    .wired-fields  { display: block; }
+body.mode-wireless .wired-fields  { display: none; }
+</style>
+</head>
+<body class="mode-wired">
+
+<header class="mit-header">
+  <img src="static/Screenshot_2026-03-25_222244-removebg-preview.png" alt="Manipal Institute of Technology" class="mit-logo-img">
+  <div class="project-title">Communication Networks TCP Project</div>
+</header>
+
+<div class="shell">
+  <aside>
+    <div class="panel">
+      <div class="panel-title">Configuration</div>
+      
+      <div class="mode-tabs">
+        <button class="mode-btn active" id="btn-wired" onclick="setMode('wired')">Wired Network</button>
+        <button class="mode-btn" id="btn-wireless" onclick="setMode('wireless')">Wireless</button>
+      </div>
+
+      <div class="field">
+        <label>Senders <span id="val-senders">2</span></label>
+        <input type="range" id="nSenders" min="1" max="10" value="2" oninput="syncNodes('nSenders')"/>
+      </div>
+      <div class="field">
+        <label>Receivers <span id="val-receivers">2</span></label>
+        <input type="range" id="nReceivers" min="1" max="10" value="2" oninput="syncNodes('nReceivers')"/>
+      </div>
+      <div class="field">
+        <label>Simulation Duration <span id="val-simTime">100s</span></label>
+        <input type="range" id="simTime" min="10" max="200" step="10" value="100" oninput="updateVal('simTime','val-simTime','s');"/>
+      </div>
+
+      <div class="wired-fields">
+        <div class="field">
+          <label>Bandwidth <span id="val-bw">8 Mbps</span></label>
+          <input type="range" id="bandwidth" min="1" max="100" value="8" oninput="updateVal('bandwidth','val-bw',' Mbps'); triggerRecommendation();"/>
+        </div>
+        <div class="field">
+          <label>Delay <span id="val-delay">50 ms</span></label>
+          <input type="range" id="delay" min="1" max="300" value="50" oninput="updateVal('delay','val-delay',' ms'); triggerRecommendation();"/>
+        </div>
+        <div class="field">
+          <label>Loss Rate <span id="val-loss">1.0%</span></label>
+          <input type="range" id="lossRate" min="0" max="10" step="0.5" value="1" oninput="updateLoss(); triggerRecommendation();"/>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Routers <span id="val-routers">2</span></label>
+          <input type="range" id="nRouters" min="2" max="8" value="2" oninput="updateVal('nRouters','val-routers'); autoLayout();"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom: 0;">
+      <div class="panel-title">AI Advisor</div>
+      <button class="btn-secondary" onclick="triggerRecommendation()">Analyze Current Setup</button>
+      <div id="rec-box" class="recommend-box">
+        <div class="rec-label">Recommended Algorithm</div>
+        <div class="rec-algo" id="rec-name">–</div>
+        <div class="rec-reason" id="rec-reason"></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="right-col">
+    
+    <div class="panel">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+        <div class="panel-title" style="margin-bottom: 0; padding-bottom: 0; border-bottom: none;">Network Topology</div>
+        <div style="display: flex; gap: 8px;">
+          <button class="run-btn" id="run-btn" onclick="runSim()" style="width: auto; padding: 8px 16px; margin: 0; font-size: 13px; border-radius: 6px; box-shadow: none;">▶ Run Simulation</button>
+          <button class="btn-secondary" id="stop-btn" onclick="stopSim()" style="display: none; width: auto; padding: 8px 16px; margin: 0; font-size: 13px; border-radius: 6px; border-color: var(--bbr); color: var(--bbr); background: var(--bbr-dim);">■ Stop Simulation</button>
+        </div>
+      </div>
+
+      <div class="topo-toolbar">
+        <button class="topo-btn sender-btn"   id="toolSender"   onclick="selectTool('sender')">Add Sender</button>
+        <button class="topo-btn receiver-btn" id="toolReceiver" onclick="selectTool('receiver')">Add Receiver</button>
+        <button class="topo-btn router-btn"   id="toolRouter"   onclick="selectTool('router')">Add Router</button>
+        <button class="topo-btn" style="margin-left: auto;" onclick="autoLayout()">Auto-Layout</button>
+        <button class="topo-btn" onclick="clearCanvas()">Clear</button>
+      </div>
+      <div class="canvas-wrap" id="topoCanvas" onclick="canvasClick(event)">
+        <svg id="topo-svg"></svg>
+        <div class="topo-empty-msg" id="emptyMsg">
+          <span class="big">🖧</span>
+          <span style="font-size: 13px;">Select a tool and click to place nodes</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel progress-wrap" id="progress-wrap">
+      <div class="progress-header">
+        <div class="progress-label" id="progress-label">Executing NS-3 Simulation...</div>
+        <div class="progress-count" id="progress-count">0 / 3</div>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+      <div class="variant-pills">
+        <div class="v-pill" id="pill-reno">TCP Reno</div>
+        <div class="v-pill" id="pill-cubic">TCP Cubic</div>
+        <div class="v-pill" id="pill-bbr">TCP BBR</div>
+      </div>
+    </div>
+
+    <div class="panel" id="empty-state">
+      <div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <div class="empty-text">Simulation results will appear here.<br/>Adjust parameters and press Run Simulation.</div>
+      </div>
+    </div>
+
+    <div id="results-area" style="display:none" class="results-area">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-variant reno">TCP Linux Reno</div>
+          <div class="stat-row"><span class="stat-key">Throughput</span><span class="stat-val" id="s-reno-th">–</span></div>
+          <div class="stat-row"><span class="stat-key">Avg Delay</span><span class="stat-val" id="s-reno-dl">–</span></div>
+          <div class="stat-row"><span class="stat-key">Loss</span><span class="stat-val" id="s-reno-ls">–</span></div>
+          <div class="stat-row"><span class="stat-key">Fairness</span><span class="stat-val" id="s-reno-jfi">–</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-variant cubic">TCP Cubic</div>
+          <div class="stat-row"><span class="stat-key">Throughput</span><span class="stat-val" id="s-cubic-th">–</span></div>
+          <div class="stat-row"><span class="stat-key">Avg Delay</span><span class="stat-val" id="s-cubic-dl">–</span></div>
+          <div class="stat-row"><span class="stat-key">Loss</span><span class="stat-val" id="s-cubic-ls">–</span></div>
+          <div class="stat-row"><span class="stat-key">Fairness</span><span class="stat-val" id="s-cubic-jfi">–</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-variant bbr">TCP BBR</div>
+          <div class="stat-row"><span class="stat-key">Throughput</span><span class="stat-val" id="s-bbr-th">–</span></div>
+          <div class="stat-row"><span class="stat-key">Avg Delay</span><span class="stat-val" id="s-bbr-dl">–</span></div>
+          <div class="stat-row"><span class="stat-key">Loss</span><span class="stat-val" id="s-bbr-ls">–</span></div>
+          <div class="stat-row"><span class="stat-key">Fairness</span><span class="stat-val" id="s-bbr-jfi">–</span></div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--reno)"></div>Reno</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--cubic)"></div>Cubic</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--bbr)"></div>BBR</div>
+      </div>
+
+      <div class="chart-grid">
+        <div class="chart-wrap">
+          <div class="chart-title">Total Throughput (Mbps)</div>
+          <div class="chart-canvas-wrap"><canvas id="chart-th"></canvas></div>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-title">Avg End-to-End Delay (ms)</div>
+          <div class="chart-canvas-wrap"><canvas id="chart-dl"></canvas></div>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-title">Avg Packet Loss (%)</div>
+          <div class="chart-canvas-wrap"><canvas id="chart-ls"></canvas></div>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-title">Jain's Fairness Index</div>
+          <div class="chart-canvas-wrap"><canvas id="chart-jfi"></canvas></div>
+        </div>
+      </div>
+
+      <div class="cwnd-chart-wrap" style="margin-bottom: 20px;">
+        <div class="chart-title">Congestion Window (CWND)</div>
+        <div class="cwnd-canvas-wrap"><canvas id="chart-cwnd"></canvas></div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">Per-Flow Details</div>
+        <table id="flowsTable"></table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ═════════════════════════════════════════════════
+   STATE & UTILS
+   ═════════════════════════════════════════════════ */
+let currentMode  = 'wired';
+let pollInterval = null;
+let charts       = {};
+
+// Topo State
+let nodes = [];
+let nodeIdCounter = 0;
+let activeTool = null;
+let dragNode = null, dragOffX = 0, dragOffY = 0;
+
+// Animation State
+let animId;
+let isAnimating = false;
+let packets = [];
+
+const COLORS = { reno: '#3b82f6', cubic: '#22c55e', bbr: '#ef4444' };
+const VARIANT_MAP = { TcpLinuxReno: 'reno', TcpCubic: 'cubic', TcpBbr: 'bbr' };
+
+function updateVal(id, labelId, suffix = '') {
+  document.getElementById(labelId).textContent = document.getElementById(id).value + suffix;
+}
+function updateLoss() {
+  document.getElementById('val-loss').textContent = parseFloat(document.getElementById('lossRate').value).toFixed(1) + '%';
+}
+function setMode(mode) {
+  currentMode = mode;
+  document.body.className = 'mode-' + mode;
+  document.getElementById('btn-wired').classList.toggle('active', mode === 'wired');
+  document.getElementById('btn-wireless').classList.toggle('active', mode === 'wireless');
+  autoLayout();
+  triggerRecommendation();
+}
+
+// ── SYNC SLIDERS ──
+function syncNodes(sourceId) {
+  const val = document.getElementById(sourceId).value;
+  document.getElementById('nSenders').value = val;
+  document.getElementById('nReceivers').value = val;
+  updateVal('nSenders', 'val-senders');
+  updateVal('nReceivers', 'val-receivers');
+  autoLayout();
+  triggerRecommendation();
+}
+
+/* ═════════════════════════════════════════════════
+   TOPOLOGY BUILDER
+   ═════════════════════════════════════════════════ */
+function selectTool(type) {
+  activeTool = (activeTool === type) ? null : type;
+  ['sender','receiver','router'].forEach(t => {
+    document.getElementById('tool'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('active', activeTool===t);
+  });
+  const canvas = document.getElementById('topoCanvas');
+  canvas.classList.toggle('placing', activeTool !== null);
+}
+
+function canvasClick(e) {
+  if (!activeTool) return;
+  if (e.target.closest('.topo-node')) return; 
+  const rect = document.getElementById('topoCanvas').getBoundingClientRect();
+  placeNode(activeTool, e.clientX - rect.left, e.clientY - rect.top);
+}
+
+function placeNode(type, x, y) {
+  nodes.push({id: ++nodeIdCounter, type, x, y});
+  renderNodes();
+  syncSlidersWithCanvas(); 
+}
+
+function deleteNode(id) {
+  nodes = nodes.filter(n => n.id !== id);
+  renderNodes();
+  syncSlidersWithCanvas(); 
+}
+
+function clearCanvas() { 
+  nodes = []; 
+  renderNodes(); 
+  syncSlidersWithCanvas(); 
+}
+
+function syncSlidersWithCanvas() {
+  const counts = { sender: 0, receiver: 0, router: 0 };
+  nodes.forEach(n => counts[n.type]++);
+
+  const maxSR = Math.max(1, counts.sender, counts.receiver);
+  
+  const nS = document.getElementById('nSenders');
+  nS.value = maxSR;
+  updateVal('nSenders', 'val-senders');
+
+  const nRcv = document.getElementById('nReceivers');
+  nRcv.value = maxSR;
+  updateVal('nReceivers', 'val-receivers');
+
+  if (currentMode === 'wired') {
+    const nR = document.getElementById('nRouters');
+    nR.value = Math.max(2, counts.router); 
+    updateVal('nRouters', 'val-routers');
+  }
+
+  triggerRecommendation();
+}
+
+function renderNodes() {
+  const canvas = document.getElementById('topoCanvas');
+  document.getElementById('emptyMsg').style.display = nodes.length === 0 ? 'flex' : 'none';
+  canvas.querySelectorAll('.topo-node').forEach(el => el.remove());
+
+  const icons = { sender:'📤', receiver:'📥', router:'🔀' };
+  const counts = { sender:0, receiver:0, router:0 };
+  
+  nodes.forEach(n => {
+    const idx = ++counts[n.type];
+    const el = document.createElement('div');
+    el.className = `topo-node ${n.type}`;
+    el.dataset.id = n.id;
+    el.style.left = n.x+'px';
+    el.style.top  = n.y+'px';
+    el.innerHTML  = `<span class="node-icon">${icons[n.type]}</span><span>${n.type.charAt(0).toUpperCase()} ${idx}</span><button class="delete-btn" onclick="event.stopPropagation();deleteNode(${n.id})">✕</button>`;
+    el.addEventListener('mousedown', startDrag);
+    canvas.appendChild(el);
+  });
+  drawLinks();
+}
+
+function drawLinks() {
+  const svg = document.getElementById('topo-svg');
+  svg.innerHTML = '';
+  
+  // Add glowing definition for packet animation
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  defs.innerHTML = `<filter id="glow"><feGaussianBlur stdDeviation="2" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
+  svg.appendChild(defs);
+
+  const senders = nodes.filter(n=>n.type==='sender');
+  const receivers = nodes.filter(n=>n.type==='receiver');
+  const routers = nodes.filter(n=>n.type==='router');
+
+  const line = (x1,y1,x2,y2,col,dash) => {
+    const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',x1); l.setAttribute('y1',y1); l.setAttribute('x2',x2); l.setAttribute('y2',y2);
+    l.setAttribute('stroke',col||'#3f3f46'); l.setAttribute('stroke-width','2');
+    l.setAttribute('stroke-dasharray',dash||'none');
+    svg.appendChild(l);
+  };
+
+  // Wire/Wireless Link Mod
+  const dash = currentMode === 'wireless' ? '6 6' : 'none';
+
+  if (routers.length > 0) {
+    senders.forEach(s => line(s.x, s.y, routers[0].x, routers[0].y, COLORS.reno, dash));
+    for (let i=0;i<routers.length-1;i++) line(routers[i].x, routers[i].y, routers[i+1].x, routers[i+1].y, '#f97316', 'none'); // Backbone routers always solid
+    receivers.forEach(r => line(routers[routers.length-1].x, routers[routers.length-1].y, r.x, r.y, COLORS.cubic, dash));
+  } else {
+    senders.forEach(s => receivers.forEach(r => line(s.x, s.y, r.x, r.y, COLORS.bbr, dash)));
+  }
+  
+  // Create an empty layer for the packets
+  const layer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  layer.id = 'packet-layer';
+  svg.appendChild(layer);
+}
+
+function startDrag(e) {
+  if (e.target.classList.contains('delete-btn')) return;
+  e.preventDefault();
+  const el = e.currentTarget;
+  const canvas = document.getElementById('topoCanvas');
+  const crect = canvas.getBoundingClientRect();
+  dragNode = +el.dataset.id;
+  dragOffX = e.clientX - crect.left - parseFloat(el.style.left);
+  dragOffY = e.clientY - crect.top  - parseFloat(el.style.top);
+
+  function onMove(ev) {
+    const x = ev.clientX - crect.left - dragOffX;
+    const y = ev.clientY - crect.top  - dragOffY;
+    const node = nodes.find(n=>n.id===dragNode);
+    if (!node) return;
+    node.x = Math.max(28, Math.min(canvas.offsetWidth-28, x));
+    node.y = Math.max(28, Math.min(canvas.offsetHeight-28, y));
+    el.style.left = node.x+'px'; el.style.top = node.y+'px';
+    drawLinks();
+  }
+  function onUp() {
+    dragNode = null;
+    window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp);
+  }
+  window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+}
+
+function autoLayout() {
+  nodes = [];
+  const W = document.getElementById('topoCanvas').offsetWidth || 800;
+  const H = 320;
+  const nS = +document.getElementById('nSenders').value;
+  const nRcv = +document.getElementById('nReceivers').value;
+  const nR = +document.getElementById('nRouters').value;
+
+  if (currentMode === 'wired') {
+    for (let i=0;i<nS;i++) nodes.push({id:++nodeIdCounter,type:'sender', x:80, y: H*(i+1)/(nS+1)});
+    for (let i=0;i<nR;i++) nodes.push({id:++nodeIdCounter,type:'router', x:W*0.35 + i*(W*0.3/(nR-1||1)), y:H/2});
+    for (let i=0;i<nRcv;i++) nodes.push({id:++nodeIdCounter,type:'receiver',x:W-80, y: H*(i+1)/(nRcv+1)});
+  } else {
+    for (let i=0;i<nS;i++) nodes.push({id:++nodeIdCounter,type:'sender', x:80, y: H*(i+1)/(nS+1)});
+    nodes.push({id:++nodeIdCounter,type:'router', x:W/2, y:H/2});
+    for (let i=0;i<nRcv;i++) nodes.push({id:++nodeIdCounter,type:'receiver',x:W-80, y: H*(i+1)/(nRcv+1)});
+  }
+  renderNodes();
+}
+
+/* ═════════════════════════════════════════════════
+   ANIMATION SYSTEM
+   ═════════════════════════════════════════════════ */
+function startAnimation() {
+  if (isAnimating) return;
+  isAnimating = true;
+  packets = [];
+  animLoop();
+}
+
+function stopAnimation() {
+  isAnimating = false;
+  if (animId) cancelAnimationFrame(animId);
+  const layer = document.getElementById('packet-layer');
+  if (layer) layer.innerHTML = '';
+}
+
+function animLoop() {
+  if (!isAnimating) return;
+  
+  const senders = nodes.filter(n=>n.type==='sender');
+  const receivers = nodes.filter(n=>n.type==='receiver');
+  const routers = nodes.filter(n=>n.type==='router');
+  
+  // Calculate spawn chance dynamically based on bandwidth
+  const bw = +document.getElementById('bandwidth').value || 10;
+  const spawnChance = Math.min(0.05 + (bw / 100) * 0.4, 0.5); 
+
+  if (Math.random() < spawnChance && senders.length > 0 && receivers.length > 0) {
+    const s = senders[Math.floor(Math.random() * senders.length)];
+    const r = receivers[Math.floor(Math.random() * receivers.length)];
+    
+    // Determine path based on routers present
+    const path = [s];
+    routers.forEach(rt => path.push(rt));
+    path.push(r);
+    
+    const cols = [COLORS.reno, COLORS.cubic, COLORS.bbr];
+    packets.push({
+      path,
+      progress: 0,
+      speed: 0.005 + (bw / 100) * 0.015,
+      color: cols[Math.floor(Math.random() * cols.length)]
+    });
+  }
+  
+  let layer = document.getElementById('packet-layer');
+  if (!layer) {
+    layer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    layer.id = 'packet-layer';
+    document.getElementById('topo-svg').appendChild(layer);
+  }
+  
+  let html = '';
+  for (let i = packets.length - 1; i >= 0; i--) {
+    const p = packets[i];
+    p.progress += p.speed;
+    if (p.progress >= 1) {
+      packets.splice(i, 1);
+      continue;
+    }
+    
+    const totalSegments = p.path.length - 1;
+    const scaledProgress = p.progress * totalSegments;
+    const currentSegment = Math.min(Math.floor(scaledProgress), totalSegments - 1);
+    const segmentProgress = scaledProgress - currentSegment;
+    
+    const p1 = p.path[currentSegment];
+    const p2 = p.path[currentSegment + 1];
+    
+    // Dynamically fetch object positions (allows dragging while animating!)
+    const x = p1.x + (p2.x - p1.x) * segmentProgress;
+    const y = p1.y + (p2.y - p1.y) * segmentProgress;
+    
+    html += `<circle cx="${x}" cy="${y}" r="4.5" fill="${p.color}" filter="url(#glow)"></circle>
+             <circle cx="${x}" cy="${y}" r="2" fill="#fff"></circle>`;
+  }
+  layer.innerHTML = html;
+  
+  animId = requestAnimationFrame(animLoop);
+}
+
+/* ═════════════════════════════════════════════════
+   CLIENT-SIDE RECOMMENDATION
+   ═════════════════════════════════════════════════ */
+function triggerRecommendation() {
+  const bw = +document.getElementById('bandwidth').value;
+  const delay = +document.getElementById('delay').value;
+  const loss = parseFloat(document.getElementById('lossRate').value);
+  const box = document.getElementById('rec-box');
+  
+  let algo = 'cubic', reason = '';
+
+  if (currentMode === 'wireless' || loss >= 1.5) {
+    algo = 'bbr';
+    reason = `High loss (${loss}%) detected. BBR ignores random loss and will maintain high throughput where Reno/Cubic will falsely halve their speed.`;
+  } else if (bw > 30 && delay < 30) {
+    algo = 'cubic';
+    reason = `High-speed, low-latency. Cubic's aggressive window scaling will rapidly utilize the available ${bw}Mbps.`;
+  } else if (delay > 150 && loss < 0.5) {
+    algo = 'cubic';
+    reason = `Long Fat Network (LFN) detected. Cubic recovers window size significantly faster than Reno over long distances.`;
+  } else {
+    algo = 'reno';
+    reason = `Standard stable conditions. Reno provides a highly consistent baseline on low-loss, moderate-delay links.`;
+  }
+
+  const lbls = { bbr:'TCP BBR', cubic:'TCP Cubic', reno:'TCP Linux Reno' };
+  document.getElementById('rec-name').textContent = lbls[algo];
+  document.getElementById('rec-name').className = 'rec-algo ' + algo;
+  document.getElementById('rec-reason').textContent = reason;
+  box.classList.add('show');
+}
+
+/* ═════════════════════════════════════════════════
+   SIMULATION RUNNER
+   ═════════════════════════════════════════════════ */
+async function runSim() {
+  const btn = document.getElementById('run-btn');
+  const stopBtn = document.getElementById('stop-btn');
+  
+  btn.style.display = 'none';
+  stopBtn.style.display = 'block';
+
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('results-area').style.display = 'none';
+  document.getElementById('progress-wrap').classList.add('show');
+  
+  ['reno','cubic','bbr'].forEach(v => document.getElementById('pill-'+v).className = 'v-pill');
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('progress-count').textContent = '0 / 3';
+  document.getElementById('progress-label').textContent = 'Executing NS-3 Simulation...';
+
+  // Start the beautiful packet visualizer
+  startAnimation();
+
+  const params = {
+    nSenders:  +document.getElementById('nSenders').value,
+    nReceivers: +document.getElementById('nReceivers').value,
+    simTime:   +document.getElementById('simTime').value,
+    bandwidth: +document.getElementById('bandwidth').value,
+    delay:     +document.getElementById('delay').value,
+    lossRate:  (+document.getElementById('lossRate').value) / 100, 
+    nRouters:  +document.getElementById('nRouters').value,
+  };
+
+  try {
+    const res = await fetch('/simulate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ params, mode: currentMode }) });
+    const { sim_id } = await res.json();
+    pollProgress(sim_id);
+  } catch(e) {
+    alert("Backend unreachable. Ensure Python app.py is running on port 5000.");
+    stopSim();
+  }
+}
+
+// ── STOP SIMULATION ──
+function stopSim() {
+  if (pollInterval) clearInterval(pollInterval);
+  stopAnimation(); // Stop packet glow
+  
+  document.getElementById('run-btn').style.display = 'block';
+  document.getElementById('stop-btn').style.display = 'none';
+  document.getElementById('progress-label').textContent = 'Simulation Stopped by User.';
+}
+
+function pollProgress(sim_id) {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(async () => {
+    try {
+      const res  = await fetch('/progress/' + sim_id);
+      const data = await res.json();
+      
+      let step = data.step || 0;
+      let completed = [];
+      if(step > 0 || data.status === 'done') completed.push('TcpLinuxReno');
+      if(step > 1 || data.status === 'done') completed.push('TcpCubic');
+      if(data.status === 'done') completed.push('TcpBbr');
+      
+      document.getElementById('progress-fill').style.width = ((completed.length / 3) * 100) + '%';
+      document.getElementById('progress-count').textContent = completed.length + ' / 3';
+      
+      const vars = { TcpLinuxReno:'reno', TcpCubic:'cubic', TcpBbr:'bbr' };
+      completed.forEach(v => document.getElementById('pill-'+vars[v]).className = 'v-pill done '+vars[v]);
+      if (data.current && data.status !== 'done') {
+         document.getElementById('pill-'+vars[data.current]).classList.add('running');
+      }
+
+      if (data.status === 'done') {
+        clearInterval(pollInterval);
+        stopAnimation(); // Stop packet glow when finished
+        
+        renderResults(data.results);
+        document.getElementById('run-btn').style.display = 'block';
+        document.getElementById('stop-btn').style.display = 'none';
+      }
+    } catch(_) {}
+  }, 1500);
+}
+
+/* ═════════════════════════════════════════════════
+   CHART.JS RENDERING
+   ═════════════════════════════════════════════════ */
+function renderResults(results) {
+  document.getElementById('results-area').style.display = 'block';
+
+  const R = results.TcpLinuxReno || {};
+  const C = results.TcpCubic     || {};
+  const B = results.TcpBbr       || {};
+
+  // Cards
+  const fill = (n, d) => {
+    document.getElementById(`s-${n}-th`).textContent = d.totalThroughput != null ? d.totalThroughput.toFixed(2) + ' Mbps' : '–';
+    document.getElementById(`s-${n}-dl`).textContent = d.avgDelay != null ? d.avgDelay.toFixed(1) + ' ms' : '–';
+    document.getElementById(`s-${n}-ls`).textContent = d.avgLoss != null ? d.avgLoss.toFixed(3) + '%' : '–';
+    document.getElementById(`s-${n}-jfi`).textContent= d.fairness != null ? d.fairness.toFixed(3) : '–';
+  };
+  fill('reno', R); fill('cubic', C); fill('bbr', B);
+
+  // Bar Charts
+  renderBar('chart-th', [R.totalThroughput||0, C.totalThroughput||0, B.totalThroughput||0]);
+  renderBar('chart-dl', [R.avgDelay||0, C.avgDelay||0, B.avgDelay||0]);
+  renderBar('chart-ls', [R.avgLoss||0, C.avgLoss||0, B.avgLoss||0]);
+  renderBar('chart-jfi',[R.fairness||0, C.fairness||0, B.fairness||0], true);
+
+  // CWND
+  renderCwnd({ TcpLinuxReno: R.cwnd || [], TcpCubic: C.cwnd || [], TcpBbr: B.cwnd || [] });
+
+  // Flow Table
+  const tbody = [];
+  ['TcpLinuxReno', 'TcpCubic', 'TcpBbr'].forEach(v => {
+    (results[v]?.flows||[]).forEach((f,i) => {
+      tbody.push(`<tr>
+        <td><div class="legend-dot" style="background:var(--${VARIANT_MAP[v]}); display:inline-block; margin-right:8px;"></div>${v.replace('Tcp','')}</td>
+        <td>Flow ${i+1}</td>
+        <td>${f.throughput.toFixed(3)}</td>
+        <td>${f.delay.toFixed(1)}</td>
+        <td>${f.loss.toFixed(3)}</td>
+      </tr>`);
+    });
+  });
+  document.getElementById('flowsTable').innerHTML = `<thead><tr><th>Algorithm</th><th>ID</th><th>Throughput (Mbps)</th><th>Delay (ms)</th><th>Loss (%)</th></tr></thead><tbody>${tbody.join('')}</tbody>`;
+}
+
+// ── ADD GRID TO ALL GRAPHS ──
+const C_DEF = {
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { grid: { color: '#3f3f46', drawOnChartArea: true }, ticks: { color: '#a1a1aa', font: { family: 'Fira Code', size: 11 } } },
+    y: { grid: { color: '#3f3f46', drawOnChartArea: true }, ticks: { color: '#a1a1aa', font: { family: 'Fira Code', size: 11 } } }
+  },
+  animation: { duration: 600 }
+};
+
+function renderBar(id, data, isFairness = false) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id).getContext('2d');
+  const cols = [COLORS.reno, COLORS.cubic, COLORS.bbr];
+  
+  charts[id] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: ['Reno', 'Cubic', 'BBR'], datasets: [{ data, backgroundColor: cols.map(c=>c+'33'), borderColor: cols, borderWidth: 2, borderRadius: 4 }] },
+    options: {
+      ...C_DEF, responsive: true, maintainAspectRatio: false,
+      scales: { ...C_DEF.scales, y: { ...C_DEF.scales.y, max: isFairness ? 1.1 : undefined } }
+    }
+  });
+}
+
+function renderCwnd(data) {
+  if (charts['chart-cwnd']) charts['chart-cwnd'].destroy();
+  const ctx = document.getElementById('chart-cwnd').getContext('2d');
+  
+  const mkDs = (k, lbl, c) => ({
+    label: lbl, data: (data[k]||[]).map(p => ({ x: p[0], y: p[1] })),
+    borderColor: c, backgroundColor: c+'18', borderWidth: 2, pointRadius: 0, tension: 0.2
+  });
+
+  charts['chart-cwnd'] = new Chart(ctx, {
+    type: 'line',
+    data: { datasets: [mkDs('TcpLinuxReno','Reno',COLORS.reno), mkDs('TcpCubic','Cubic',COLORS.cubic), mkDs('TcpBbr','BBR',COLORS.bbr)] },
+    options: {
+      ...C_DEF, responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { type: 'linear', title: { display: true, text: 'Time (s)', color: '#a1a1aa' }, ...C_DEF.scales.x },
+        y: { title: { display: true, text: 'CWND (KB)', color: '#a1a1aa' }, ...C_DEF.scales.y }
+      }
+    }
+  });
+}
+
+// Init
+window.addEventListener('load', () => { autoLayout(); triggerRecommendation(); });
+window.addEventListener('resize', autoLayout);
+</script>
+</body>
+</html>
