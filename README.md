@@ -1,8 +1,3 @@
-# cn-tcp-simulation
-NS-3 based simulation and comparison of TCP congestion control algorithms (Reno, CUBIC, BBR) with a Flask web app for live simulation and visualization.
-# CN TCP Simulation
-
-A network simulation project comparing **TCP congestion control algorithms** (Reno, CUBIC, BBR) using **NS-3**, with a **Flask web app** for live simulation, interactive visualization, and PDF report export.
 
 # CN TCP Simulation
 
